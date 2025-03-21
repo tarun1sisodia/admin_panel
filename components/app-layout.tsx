@@ -47,6 +47,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           <span className="text-xl font-bold">College Admin</span>
         </Link>
         <nav className="ml-auto flex gap-4 sm:gap-6">
+          <Link href="/" className="text-sm font-medium hover:underline">
+            Home
+          </Link>
           <Link href="/students" className="text-sm font-medium hover:underline">
             Students
           </Link>
@@ -85,4 +88,3 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
-
