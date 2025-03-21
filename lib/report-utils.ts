@@ -1,10 +1,14 @@
 import { getStudent, getStudentAttendance } from "./firebase-utils";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { addDoc, serverTimestamp } from "firebase/firestore";
-import { storage } from "./firebase";
 import { reportsCollection } from "./firebase-utils";
 import jsPDF from "jspdf";
-import "jspdf-autotable"; // Optional: for adding tables to PDF
+import "jspdf-autotable";
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase client
+const supabaseUrl = 'https://otcqeieukikymmsjwfeu.supabase.co';
+const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90Y3FlaWV1a2lreW1tc2p3ZmV1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDI1MjA5MDMsImV4cCI6MjA1ODA5NjkwM30.M3D533la8914BPuHQkyHWnoxN5OM4N_-vVpMDvKDMbk';
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 // Generate and save a PDF report for a student
 export async function generateStudentPdfReport(studentId: string) {
@@ -22,8 +26,11 @@ export async function generateStudentPdfReport(studentId: string) {
     
     doc.setFontSize(14);
     doc.text(`Course: ${student.courseYear}`, 20, 40);
-    doc.text(`Roll Number: ${student.rollNumber || "N/A"}`, 20, 50);
-    doc.text(`Email: ${student.email || "N/A"}`, 20, 60);
+    doc.text(`Parent Name: ${student.parentName || "N/A"}`, 20, 50);
+    doc.text(`Roll Number: ${student.rollNumber || "N/A"}`, 20, 60);
+    doc.text(`Email: ${student.email || "N/A"}`, 20, 70);
+    doc.text(`Phone: ${student.phone || "N/A"}`, 20, 80);
+    doc.text(`Parent Phone: ${student.parentPhone || "N/A"}`, 20, 90);
     
     // Add attendance summary
     const totalRecords = attendance.length;
@@ -31,38 +38,57 @@ export async function generateStudentPdfReport(studentId: string) {
     const absentCount = attendance.filter(record => record.status === "absent").length;
     const attendanceRate = totalRecords > 0 ? Math.round((presentCount / totalRecords) * 100) : 0;
     
-    doc.text('Attendance Summary:', 20, 80);
-    doc.text(`Total Classes: ${totalRecords}`, 30, 90);
-    doc.text(`Present: ${presentCount}`, 30, 100);
-    doc.text(`Absent: ${absentCount}`, 30, 110);
-    doc.text(`Attendance Rate: ${attendanceRate}%`, 30, 120);
+    doc.text('Attendance Summary:', 20, 110);
+    doc.text(`Total Classes: ${totalRecords}`, 30, 120);
+    doc.text(`Present: ${presentCount}`, 30, 130);
+    doc.text(`Absent: ${absentCount}`, 30, 140);
+    doc.text(`Attendance Rate: ${attendanceRate}%`, 30, 150);
     
     // Add attendance records table
-    doc.text('Attendance Records:', 20, 140);
+    doc.text('Attendance Records:', 20, 170);
     
     // Create table data
     const tableColumn = ["Date", "Status", "Notes"];
     const tableRows = attendance.map(record => [
-      record.date.toLocaleDateString(),
+      new Date(record.date).toLocaleDateString(),
       record.status,
       record.notes || ""
     ]);
     
-    // @ts-ignore - jspdf-autotable adds this method
+    // Use autoTable
+    // @ts-ignore
     doc.autoTable({
-      startY: 150,
+      startY: 180,
       head: [tableColumn],
       body: tableRows,
     });
     
-    // Save to Firebase Storage
-    const fileName = `student_${studentId}_report_${Date.now()}.pdf`;
+    // Get PDF as array buffer
     const pdfBytes = doc.output('arraybuffer');
-    const fileRef = ref(storage, `reports/${fileName}`);
-    await uploadBytes(fileRef, new Uint8Array(pdfBytes));
-    const downloadURL = await getDownloadURL(fileRef);
     
-    // Update report record in database
+    // Generate a unique filename
+    const fileName = `student_${studentId}_report_${Date.now()}.pdf`;
+    
+    // Upload to Supabase
+    const { data, error } = await supabase.storage
+      .from('pdf')  // Using the 'pdf' bucket as specified in your policies
+      .upload(fileName, new Uint8Array(pdfBytes), {
+        contentType: 'application/pdf',
+      });
+    
+    if (error) {
+      console.error("Supabase upload error:", error);
+      throw error;
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('pdf')
+      .getPublicUrl(fileName);
+    
+    const downloadURL = urlData.publicUrl;
+    
+    // Update report record in Firebase database
     await addDoc(reportsCollection, {
       studentId,
       studentName: student.name,

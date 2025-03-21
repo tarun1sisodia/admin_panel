@@ -27,6 +27,7 @@ import { getStudents, addAttendanceRecord } from "@/lib/firebase-utils"
 type AttendanceRecord = {
   id: string
   studentName: string
+  parentName: string
   studentId: string
   date: Date
   status: "present" | "absent" | "late" | "excused"

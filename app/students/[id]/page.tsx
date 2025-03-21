@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { getStudent, deleteStudent } from "@/lib/firebase-utils"
-import { generateStudentPdfReport, downloadReport } from "@/lib/report-utils"
+import { generateStudentPdfReport } from "@/lib/report-utils"
 import { StudentForm } from "@/components/student-form"
 import { Loader2, ArrowLeft, Trash2, FileText } from "lucide-react"
 import { toast } from "@/components/ui/use-toast"
@@ -33,7 +33,6 @@ export default function StudentDetailPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
-  const [reportUrl, setReportUrl] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchStudent() {
@@ -81,17 +80,11 @@ export default function StudentDetailPage() {
   const handleGenerateReport = async () => {
     try {
       setIsGenerating(true)
-      const reportUrl = await generateStudentPdfReport(studentId)
+      await generateStudentPdfReport(studentId)
       toast({
         title: "Report Generated",
-        description: "The student report has been successfully generated.",
+        description: "The student report has been successfully generated and downloaded.",
       })
-      
-      // Option 1: Automatically download
-      downloadReport(reportUrl, `${student.name}_report.pdf`)
-      
-      // Option 2: Just provide the link
-      setReportUrl(reportUrl)
     } catch (error) {
       console.error("Error generating report:", error)
       toast({
@@ -117,17 +110,21 @@ export default function StudentDetailPage() {
   return (
     <AppLayout>
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="icon" asChild>
-            <Link href="/students">
-              <ArrowLeft className="h-4 w-4" />
-              <span className="sr-only">Back</span>
-            </Link>
-          </Button>
-          <h1 className="text-2xl font-bold">{student.name}</h1>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="icon" asChild>
+              <Link href="/students">
+                <ArrowLeft className="h-4 w-4" />
+                <span className="sr-only">Back</span>
+              </Link>
+            </Button>
+            <h1 className="text-2xl font-bold">{student.name}</h1>
+          </div>
+          {student.parentName && (
+            <p className="text-muted-foreground ml-10 mt-1">Parent: {student.parentName}</p>
+          )}
         </div>
         <div className="flex gap-2">
-          {/* Add Report Generation Button */}
           <Button 
             variant="outline" 
             onClick={handleGenerateReport} 
@@ -146,30 +143,6 @@ export default function StudentDetailPage() {
           </Button>
         </div>
       </div>
-
-      {/* Display report URL if available */}
-      {reportUrl && (
-        <div className="mt-4 p-4 bg-muted rounded-md">
-          <p className="text-sm font-medium">Report generated successfully!</p>
-          <div className="flex items-center gap-2 mt-2">
-            <a 
-              href={reportUrl} 
-              target="_blank" 
-              rel="noopener noreferrer" 
-              className="text-primary hover:underline"
-            >
-              View Report
-            </a>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => downloadReport(reportUrl, `${student.name}_report.pdf`)}
-            >
-              Download Again
-            </Button>
-          </div>
-        </div>
-      )}
 
       <Tabs defaultValue="details" className="w-full mt-6">
         <TabsList>

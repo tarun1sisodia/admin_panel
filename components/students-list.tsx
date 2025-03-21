@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Edit, Trash2, Download, Search, AlertCircle } from "lucide-react"
-import { getStudents, deleteStudent, generateStudentReport } from "@/lib/firebase-utils"
+import { getStudents, deleteStudent } from "@/lib/firebase-utils"
+// Add this import for the PDF generation function
+import { generateStudentPdfReport } from "@/lib/report-utils"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +31,8 @@ type Student = {
   address: string
   joinDate?: string
   createdAt?: any
+  parentName?: string
+  parentPhone?: string
 }
 
 export function StudentsList() {
@@ -77,7 +81,9 @@ export function StudentsList() {
         (student) =>
           student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
           student.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (student.phone && student.phone.includes(searchTerm)),
+          (student.phone && student.phone.includes(searchTerm)) ||
+          (student.parentName && student.parentName.toLowerCase().includes(searchTerm.toLowerCase())) ||
+          (student.parentPhone && student.parentPhone.includes(searchTerm)),
       )
     }
 
@@ -115,31 +121,29 @@ export function StudentsList() {
   }
 
   const handleDownloadReport = async (id: string) => {
-    setIsGeneratingReport(true)
+    setIsGeneratingReport(true);
     try {
-      const reportUrl = await generateStudentReport(id)
-
-      // In a real app, this would trigger a download
-      // For now, we'll just show a success message
+      const reportUrl = await generateStudentPdfReport(id);
+      
       toast({
         title: "Report generated",
         description: "The student report has been generated successfully.",
-      })
-
-      // Simulate download by opening in new tab
-      window.open(reportUrl, "_blank")
+      });
+      
+      // Open the report in a new tab
+      window.open(reportUrl, "_blank");
     } catch (error) {
-      console.error("Error generating report:", error)
+      console.error("Error generating report:", error);
       toast({
         title: "Error",
         description: "Failed to generate report. Please try again.",
         variant: "destructive",
-      })
+      });
     } finally {
-      setIsGeneratingReport(false)
+      setIsGeneratingReport(false);
     }
-  }
-
+  };
+  
   const formatDate = (timestamp: any) => {
     if (!timestamp) return "N/A"
 
@@ -226,9 +230,11 @@ export function StudentsList() {
           <TableHeader>
             <TableRow>
               <TableHead>Name</TableHead>
+              <TableHead>Parent Name</TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Course Year</TableHead>
               <TableHead>Phone</TableHead>
+              <TableHead>Parent Phone</TableHead>
               <TableHead>Join Date</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -237,9 +243,11 @@ export function StudentsList() {
             {filteredStudents.map((student) => (
               <TableRow key={student.id}>
                 <TableCell className="font-medium">{student.name}</TableCell>
+                <TableCell>{student.parentName || "N/A"}</TableCell>
                 <TableCell>{student.email}</TableCell>
                 <TableCell>{student.courseYear}</TableCell>
                 <TableCell>{student.phone}</TableCell>
+                <TableCell>{student.parentPhone || "N/A"}</TableCell>
                 <TableCell>{formatDate(student.createdAt)}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -299,4 +307,3 @@ export function StudentsList() {
     </div>
   )
 }
-
